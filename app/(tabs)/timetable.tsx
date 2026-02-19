@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../../context/UserContext';
 
 export default function TimetableScreen() {
-    const { role, loading } = useUser();
+    const { role, roleLoading } = useUser();
     const [submitting, setSubmitting] = useState(false);
 
     // Form states
@@ -53,10 +53,11 @@ export default function TimetableScreen() {
         }
     };
 
-    if (loading) {
+    if (roleLoading) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color="#007AFF" />
+                <Text style={styles.loadingText}>Verifying permissions...</Text>
             </View>
         );
     }
@@ -226,5 +227,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#999',
         textAlign: 'center',
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 14,
+        color: '#666',
     },
 });

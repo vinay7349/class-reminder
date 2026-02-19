@@ -1,9 +1,9 @@
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, ScrollView } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../firebaseConfig";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { Ionicons } from '@expo/vector-icons';
 
 const SECRET_ADMIN_CODE = "MASTER2024"; // The "Admin Password" you requested
@@ -13,8 +13,41 @@ export default function Register() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [role, setRole] = useState<'Teacher' | 'CR' | 'Admin' | 'Student'>('Student');
+    const [sectionId, setSectionId] = useState('');
+    const [sectionName, setSectionName] = useState('');
+    const [sections, setSections] = useState<{ id: string, name: string }[]>([]);
+    const [teacherSubjects, setTeacherSubjects] = useState<{ subject: string, sectionId: string, sectionName: string }[]>([]);
+    const [newSubject, setNewSubject] = useState('');
+    const [newSubjectSection, setNewSubjectSection] = useState('');
     const [adminCode, setAdminCode] = useState('');
     const [loading, setLoading] = useState(false);
+    const [fetchingSections, setFetchingSections] = useState(true);
+
+    useEffect(() => {
+        const fetchSections = async () => {
+            try {
+                const querySnapshot = await getDocs(collection(db, "sections"));
+                const sectionsList = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    name: doc.data().name
+                }));
+                setSections(sectionsList);
+
+                // If no sections exist, create a default one for now
+                if (sectionsList.length === 0) {
+                    const defaultSection = { name: "Default Section", id: "default-section" };
+                    setSections([defaultSection]);
+                }
+            } catch (error) {
+                console.error("Error fetching sections:", error);
+                // Fallback
+                setSections([{ id: 'default', name: 'General' }]);
+            } finally {
+                setFetchingSections(false);
+            }
+        };
+        fetchSections();
+    }, []);
 
     const handleRegister = async () => {
         if (!name || !email || !password) {
@@ -27,6 +60,16 @@ export default function Register() {
             return;
         }
 
+        if ((role === 'Student' || role === 'CR') && !sectionId) {
+            Alert.alert("Error", "Please select your section");
+            return;
+        }
+
+        if (role === 'Teacher' && teacherSubjects.length === 0) {
+            Alert.alert("Error", "Please add at least one subject and section");
+            return;
+        }
+
         setLoading(true);
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
@@ -36,6 +79,9 @@ export default function Register() {
                 name,
                 email: email.trim(),
                 role,
+                sectionId: (role === 'Student' || role === 'CR') ? sectionId : null,
+                sectionName: (role === 'Student' || role === 'CR') ? sectionName : null,
+                teacherSubjects: role === 'Teacher' ? teacherSubjects : [],
                 createdAt: new Date().toISOString()
             });
 
@@ -115,6 +161,80 @@ export default function Register() {
                             </TouchableOpacity>
                         ))}
                     </View>
+
+                    {role !== 'Admin' && role !== 'Teacher' && (
+                        <View style={styles.sectionPicker}>
+                            <Text style={styles.label}>Select Your Section</Text>
+                            {fetchingSections ? (
+                                <ActivityIndicator size="small" color="#007AFF" />
+                            ) : (
+                                <View style={styles.chipsContainer}>
+                                    {sections.map((s) => (
+                                        <TouchableOpacity
+                                            key={s.id}
+                                            style={[styles.chip, sectionId === s.id && styles.chipActive]}
+                                            onPress={() => {
+                                                setSectionId(s.id);
+                                                setSectionName(s.name);
+                                            }}
+                                        >
+                                            <Text style={[styles.chipText, sectionId === s.id && styles.chipTextActive]}>{s.name}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    )}
+
+                    {role === 'Teacher' && (
+                        <View style={styles.teacherSection}>
+                            <Text style={styles.label}>Your Subjects & Sections</Text>
+                            <View style={styles.addSubjectRow}>
+                                <TextInput
+                                    placeholder="Subject (e.g. Maths)"
+                                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                                    value={newSubject}
+                                    onChangeText={setNewSubject}
+                                />
+                                <TouchableOpacity
+                                    style={styles.addBtn}
+                                    onPress={() => {
+                                        if (newSubject && newSubjectSection) {
+                                            const section = sections.find(s => s.id === newSubjectSection);
+                                            setTeacherSubjects([...teacherSubjects, {
+                                                subject: newSubject,
+                                                sectionId: newSubjectSection,
+                                                sectionName: section?.name || 'Unknown'
+                                            }]);
+                                            setNewSubject('');
+                                            setNewSubjectSection('');
+                                        }
+                                    }}
+                                >
+                                    <Ionicons name="add" size={24} color="#FFF" />
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.chipsContainer}>
+                                {sections.map((s) => (
+                                    <TouchableOpacity
+                                        key={s.id}
+                                        style={[styles.chip, newSubjectSection === s.id && styles.chipActive]}
+                                        onPress={() => setNewSubjectSection(s.id)}
+                                    >
+                                        <Text style={[styles.chipText, newSubjectSection === s.id && styles.chipTextActive]}>{s.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                            {teacherSubjects.map((ts, index) => (
+                                <View key={index} style={styles.subjectItem}>
+                                    <Text style={styles.subjectItemText}>{ts.subject} - {ts.sectionName}</Text>
+                                    <TouchableOpacity onPress={() => setTeacherSubjects(teacherSubjects.filter((_, i) => i !== index))}>
+                                        <Ionicons name="close-circle" size={20} color="#FF3B30" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                    )}
 
                     {role === 'Admin' && (
                         <View style={styles.adminSection}>
@@ -245,5 +365,63 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: '700',
+    },
+    sectionPicker: {
+        marginTop: 8,
+    },
+    chipsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 8,
+    },
+    chip: {
+        backgroundColor: '#E9ECEF',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    chipActive: {
+        backgroundColor: '#007AFF',
+    },
+    chipText: {
+        fontSize: 12,
+        color: '#666',
+        fontWeight: '600',
+    },
+    chipTextActive: {
+        color: '#FFF',
+    },
+    teacherSection: {
+        marginTop: 8,
+        gap: 12,
+    },
+    addSubjectRow: {
+        flexDirection: 'row',
+        gap: 8,
+        alignItems: 'center',
+    },
+    addBtn: {
+        backgroundColor: '#34C759',
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    subjectItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#FFF',
+        padding: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#E9ECEF',
+    },
+    subjectItemText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1A1A1A',
     },
 });

@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, Alert, Modal } from 'react-native';
 import { useEffect, useState } from 'react';
+import { router } from 'expo-router';
 import { auth, db } from '../../firebaseConfig';
 import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -8,7 +9,7 @@ import TimetableCard from '../../components/TimetableCard';
 import { useUser } from '../../context/UserContext';
 
 export default function Dashboard() {
-  const { user, role, loading: userLoading } = useUser();
+  const { user, role, sectionId, sectionName, loading: userLoading } = useUser();
   const [loading, setLoading] = useState(true);
   const [timetable, setTimetable] = useState<any[]>([]);
   const [message, setMessage] = useState('');
@@ -24,11 +25,12 @@ export default function Dashboard() {
         senderName: user?.displayName || 'Authorized User',
         senderId: user?.uid,
         senderRole: role,
+        sectionId: (role === 'Teacher' || role === 'CR') ? sectionId : null,
         timestamp: serverTimestamp(),
       });
       setMessage('');
       setShowModal(false);
-      Alert.alert("Success", "Message broadcasted to all students!");
+      Alert.alert("Success", "Message broadcasted to your section!");
     } catch (error) {
       console.error("Error broadcasting message:", error);
       Alert.alert("Error", "Failed to send message");
@@ -41,13 +43,22 @@ export default function Dashboard() {
     // Fetch timetable entries
     const q = query(collection(db, "timetables"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+
+      // Filter based on role and section
+      if (role === 'Student' || role === 'CR') {
+        docs = docs.filter(doc => doc.sectionId === sectionId || !doc.sectionId);
+      } else if (role === 'Teacher') {
+        // Teachers see entries where they are the teacher
+        docs = docs.filter(doc => doc.teacherId === user?.uid || doc.teacherName === user?.displayName);
+      }
+
       setTimetable(docs);
       setLoading(false);
     });
 
     return unsubscribe;
-  }, []);
+  }, [role, sectionId]);
 
   const handleLogout = () => {
     signOut(auth);
@@ -61,14 +72,6 @@ export default function Dashboard() {
     }
   };
 
-  if (loading || userLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
-  }
-
   const filteredTimetable = role === 'Teacher'
     ? timetable.filter(item => item.teacherName === user?.displayName || item.teacherId === user?.uid)
     : timetable;
@@ -77,14 +80,23 @@ export default function Dashboard() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hello, {role}</Text>
+          <Text style={styles.greeting}>Hello, {role || 'User'}</Text>
           <Text style={styles.subGreeting}>Welcome back to your dashboard</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          {(role === 'CR' || role === 'Teacher') && (
-            <TouchableOpacity onPress={() => setShowModal(true)} style={[styles.logoutButton, { backgroundColor: '#E1F5FE' }]}>
-              <Ionicons name="megaphone-outline" size={24} color="#0288D1" />
+          {role === 'Admin' && (
+            <TouchableOpacity onPress={() => router.push('/admin/panel' as any)} style={[styles.logoutButton, { backgroundColor: '#E8EAF6' }]}>
+              <Ionicons name="settings-outline" size={24} color="#3F51B5" />
             </TouchableOpacity>
+          )}
+          {userLoading ? (
+            <ActivityIndicator size="small" color="#007AFF" />
+          ) : (
+            (role === 'CR' || role === 'Teacher') && (
+              <TouchableOpacity onPress={() => setShowModal(true)} style={[styles.logoutButton, { backgroundColor: '#E1F5FE' }]}>
+                <Ionicons name="megaphone-outline" size={24} color="#0288D1" />
+              </TouchableOpacity>
+            )
           )}
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Ionicons name="log-out-outline" size={24} color="#FF3B30" />

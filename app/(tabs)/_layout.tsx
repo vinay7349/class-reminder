@@ -31,8 +31,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Messages',
+          title: 'Notifications',
           tabBarIcon: ({ color }) => <Ionicons name="notifications-outline" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="assignments"
+        options={{
+          title: 'Tasks',
+          tabBarIcon: ({ color }) => <Ionicons name="document-text-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen

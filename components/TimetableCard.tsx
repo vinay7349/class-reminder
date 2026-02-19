@@ -1,3 +1,4 @@
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -17,7 +18,7 @@ interface TimetableCardProps {
     showActions?: boolean;
 }
 
-export default function TimetableCard({ item, onConfirm, showActions }: TimetableCardProps) {
+const TimetableCard = memo(({ item, onConfirm, showActions }: TimetableCardProps) => {
     const getStatusColor = () => {
         switch (item.status) {
             case 'Coming': return '#34C759';
@@ -67,7 +68,9 @@ export default function TimetableCard({ item, onConfirm, showActions }: Timetabl
             )}
         </View>
     );
-}
+});
+
+export default TimetableCard;
 
 const styles = StyleSheet.create({
     card: {

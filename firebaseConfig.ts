@@ -3,12 +3,12 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB99UQ1kXii9Ytce6rRnyaKNddYKTaRjzw",
-  authDomain: "college-reminder-app-7f7c1.firebaseapp.com",
-  projectId: "college-reminder-app-7f7c1",
-  storageBucket: "college-reminder-app-7f7c1.firebasestorage.app",
-  messagingSenderId: "405798923036",
-  appId: "1:405798923036:web:f11baa2b7dda494dd728d9",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);

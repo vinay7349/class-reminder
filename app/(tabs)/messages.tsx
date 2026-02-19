@@ -14,7 +14,7 @@ interface Message {
 }
 
 export default function MessagesScreen() {
-    const { loading: userLoading } = useUser();
+    const { sectionId, loading: userLoading } = useUser();
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -26,10 +26,16 @@ export default function MessagesScreen() {
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({
+            let data = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
-            })) as Message[];
+            })) as any[];
+
+            // Filter by section or global messages
+            if (sectionId) {
+                data = data.filter(msg => !msg.sectionId || msg.sectionId === sectionId || msg.global === true);
+            }
+
             setMessages(data);
             setLoading(false);
             setRefreshing(false);
@@ -40,7 +46,7 @@ export default function MessagesScreen() {
         });
 
         return unsubscribe;
-    }, []);
+    }, [sectionId]);
 
     const onRefresh = () => {
         setRefreshing(true);

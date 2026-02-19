@@ -6,46 +6,68 @@ import { auth, db } from '../firebaseConfig';
 interface UserContextType {
     user: User | null;
     role: string | null;
+    sectionId: string | null;
+    sectionName: string | null;
     loading: boolean;
+    roleLoading: boolean;
     refreshRole: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType>({
     user: null,
     role: null,
+    sectionId: null,
+    sectionName: null,
     loading: true,
+    roleLoading: false,
     refreshRole: async () => { },
 });
 
 export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [role, setRole] = useState<string | null>(null);
+    const [sectionId, setSectionId] = useState<string | null>(null);
+    const [sectionName, setSectionName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [roleLoading, setRoleLoading] = useState(false);
 
     const fetchRole = async (uid: string) => {
+        setRoleLoading(true);
         try {
             const userDoc = await getDoc(doc(db, "users", uid));
             if (userDoc.exists()) {
-                setRole(userDoc.data().role);
+                const data = userDoc.data();
+                setRole(data.role);
+                setSectionId(data.sectionId || null);
+                setSectionName(data.sectionName || null);
             } else {
                 setRole(null);
+                setSectionId(null);
+                setSectionName(null);
             }
         } catch (error) {
-            console.error("Error fetching role:", error);
+            console.error("Error fetching user data:", error);
             setRole(null);
+            setSectionId(null);
+            setSectionName(null);
+        } finally {
+            setRoleLoading(false);
         }
     };
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
             if (currentUser) {
-                // Fetch role in background, don't block the main loading state if possible
-                // But for initial load, we might want to wait if we're on a protected route
-                await fetchRole(currentUser.uid);
+                // Fetch role in background, don't block the main loading state
+                fetchRole(currentUser.uid);
             } else {
                 setRole(null);
+                setSectionId(null);
+                setSectionName(null);
+                setRoleLoading(false);
             }
+            // Crucial: Set loading to false as soon as we know the auth state
             setLoading(false);
         });
 
@@ -57,7 +79,15 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     return (
-        <UserContext.Provider value={{ user, role, loading, refreshRole }}>
+        <UserContext.Provider value={{
+            user,
+            role,
+            sectionId,
+            sectionName,
+            loading,
+            roleLoading,
+            refreshRole
+        }}>
             {children}
         </UserContext.Provider>
     );
